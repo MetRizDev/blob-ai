@@ -7,7 +7,6 @@ on:
   workflow_dispatch:
 
 permissions:
-
   contents: write
 
 jobs:
@@ -60,7 +59,7 @@ jobs:
       - name: Package EXE
         shell: pwsh
         working-directory: ${{ env.PROJECT_ROOT }}
-        run: npm exec electron-builder -- --win --x64
+        run: npm exec electron-builder -- --win --x64 --publish never
 
       - name: List artifacts
         shell: pwsh
