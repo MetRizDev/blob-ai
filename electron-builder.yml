@@ -1,0 +1,38 @@
+appId: com.blob.assistant
+productName: Blob
+copyright: Copyright © 2026 Blob
+
+directories:
+  output: dist-release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - build/**/*
+  - package.json
+
+win:
+  icon: build/icon.ico
+  # Не требует winCodeSign / создания символьных ссылок при распаковке
+  signAndEditExecutable: false
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Blob
+
+portable:
+  artifactName: Blob-Portable.exe
+
+artifactName: Blob-${version}-${arch}.${ext}
