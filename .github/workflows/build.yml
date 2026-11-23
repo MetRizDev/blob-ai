@@ -1,0 +1,83 @@
+name: Build Blob EXE
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Find project root and show files
+        shell: pwsh
+        run: |
+          $root = $PWD.Path
+          if (-not (Test-Path (Join-Path $root 'package.json'))) {
+            $found = Get-ChildItem -Recurse -Filter package.json -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -notmatch 'node_modules' } |
+              Select-Object -First 1
+            if ($found) { $root = $found.Directory.FullName }
+          }
+          "PROJECT_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "=== PROJECT ROOT: $root ==="
+          Get-ChildItem -Force $root | Select-Object Mode, Length, Name
+          Write-Host "=== workflow file: $env:GITHUB_WORKFLOW ==="
+
+      - name: Install dependencies
+        shell: pwsh
+        working-directory: ${{ env.PROJECT_ROOT }}
+        run: |
+          if (Test-Path package-lock.json) {
+            npm ci --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "npm ci failed - falling back to npm install"
+              npm install --no-audit --no-fund
+            }
+          } else {
+            npm install --no-audit --no-fund
+          }
+
+      - name: Build TypeScript + Vite
+        shell: pwsh
+        working-directory: ${{ env.PROJECT_ROOT }}
+        run: npm run build
+
+      - name: Package EXE
+        shell: pwsh
+        working-directory: ${{ env.PROJECT_ROOT }}
+        run: npm exec electron-builder -- --win --x64
+
+      - name: List artifacts
+        shell: pwsh
+        working-directory: ${{ env.PROJECT_ROOT }}
+        run: Get-ChildItem -Recurse dist-release | Select-Object FullName, Length
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Blob-Windows
+          path: ${{ env.PROJECT_ROOT }}/dist-release/*.exe
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.PROJECT_ROOT }}/dist-release/*.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
